@@ -121,6 +121,18 @@ Fernet proporciona cifrado autenticado; contraseña derivada con Scrypt. La clav
 
 No hay logs clínicos, logs de acceso HTTP ni volcados de respuesta de Ollama. Los mensajes técnicos son genéricos. El navegador y el sistema operativo no son controlados íntegramente por la aplicación: extensiones, malware, captura de pantalla, swap, crash dumps, backups y una cuenta comprometida quedan fuera de esta garantía. Activa FileVault, protege la sesión macOS y evita extensiones con acceso a la página. La aplicación no inspecciona ni modifica tus ajustes globales.
 
+### Corregir errores de extracción sin compartir el informe
+
+En **Importar → Revisar extracción → Descargar diagnóstico técnico** obtienes `salud-local-diagnostico.json`. Para un fallo que impida importar, usa **Privacidad → Descargar diagnóstico técnico**. La descarga requiere la sesión local y no se envía automáticamente. Puedes abrir el JSON y revisarlo antes de compartirlo para soporte.
+
+El esquema permite exclusivamente códigos predefinidos, versión del extractor, formato y contadores técnicos: páginas/OCR, propuestas, etiquetas no reconocidas, fechas detectadas o ambiguas y errores de validación. No incluye nombres, fechas clínicas, valores, indicadores concretos, texto, rutas, IDs, huellas del documento, modelo ni mensajes/stack traces de excepciones. Se construye desde una lista permitida, no intentando ocultar nombres dentro de texto médico. Los contadores describen la estructura de un archivo; no prometemos anonimato absoluto ni que basten para reproducir todos los errores. No añadas capturas ni originales al reporte.
+
+Las últimas 50 extracciones, incluidos fallos del parser, se guardan dentro de `vault.bin`, cifradas. Cada documento conserva también su último diagnóstico. **Privacidad → Borrar trazas técnicas** elimina ambos; borrar un documento elimina sus eventos; borrar el perfil elimina todo. El JSON descargado queda sin cifrar fuera de la bóveda y debes eliminarlo por separado si lo deseas. Las descargas y capturas nunca deben entrar en Git.
+
+Los documentos importados con versiones anteriores no tienen trazas retroactivas. Abre un documento **pendiente** y pulsa **Volver a extraer este documento** para aplicar el nuevo extractor y generar un diagnóstico. Se sustituyen las propuestas y cambios sin confirmar, con aviso previo; el original permanece y nada se incorpora automáticamente. Los documentos confirmados no se reprocesan mediante este botón.
+
+El extractor propone fechas ISO o DD/MM/AAAA bajo una etiqueta de fecha de muestra en español. Fechas sin contexto que puedan leerse como día/mes o mes/día se dejan vacías. Una fecha de muestra única puede aplicarse a otras páginas; fechas de muestra contradictorias requieren revisión. Admite aclaraciones de suero/plasma y columnas PDF mediante extracción de disposición. No equipara resultados de orina a glucosa sérica, ni convierte desigualdades en valores exactos. El catálogo sigue limitado a 11 indicadores; otras determinaciones y resultados cualitativos se conservan como evidencia documental y no se consolidan como medidas. Los contadores de líneas no mapeadas son aproximados, no un recuento clínico completo.
+
 ## Copia y recuperación
 
 En **Privacidad → Descargar copia completa** se exportan bóveda, originales y clave como ZIP sin compresión. Si has activado contraseña, sigue siendo necesaria; si no, **la copia contiene la clave en claro**. Activa contraseña antes de exportar una copia sensible. No compartas ni sincronices copias sin decidirlo conscientemente.

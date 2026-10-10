@@ -24,6 +24,12 @@ Los hooks revisan el índice antes de commit y el historial antes de push. GitHu
 
 Ejecuta las pruebas solo con datos sintéticos. No se necesita Ollama para la suite automatizada. La comprobación de aislamiento de macOS está disponible por separado en `tests/check_macos_network.py`.
 
+## Reportar un fallo de extracción
+
+Comparte, si lo deseas, el diagnóstico técnico que ofrece la revisión o Privacidad, después de leer su JSON. Explica el tipo de problema sin identificar pacientes ni transcribir resultados. No añadas el archivo descargado al repositorio: utiliza sus códigos para construir una reproducción inventada. No solicites informes originales, texto extraído, capturas clínicas, backups ni claves. Si las trazas no bastan, reproduce el patrón de columnas, etiqueta o formato de fecha con datos sintéticos completamente nuevos.
+
+`app/diagnostics.py` es la frontera de exportación: solo enums fijos y contadores enteros acotados. Todo nuevo campo requiere justificar que no contiene ni codifica datos clínicos o identificadores y probar su exclusión de contenido arbitrario. No añadas mensajes de excepción, stack traces, hashes de documentos, timestamps ni nombres de modelos al esquema. Las trazas se conservan cifradas; la descarga manual no implica permiso para publicarlas automáticamente.
+
 ## Si ocurre una exposición
 
 Detén los pushes, retira el contenido público, revoca credenciales afectadas y limpia el historial y las copias accesibles. Un nuevo commit que borra el archivo no lo elimina del historial. No publiques el contenido expuesto al informar del incidente. La eliminación no garantiza retirar clones o copias que otros ya hayan hecho.

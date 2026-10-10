@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from .store import Store
 from .analytics import METRICS, normalize, calculate
-from . import rag, llm
+from . import rag, llm, diagnostics
 
 BASE=Path(__file__).resolve().parent.parent
 ROOT=Path(os.environ.get('SALUD_DATA',str(Path.home()/'Library'/'Application Support'/'SaludLocal'))).resolve()
@@ -167,6 +167,27 @@ def set_settings(body:dict):
             return session(JSONResponse({'ok':True}))
     return {'ok':True}
 
+def remember_diagnostic(payload, source=None):
+    # Caller holds the vault mutex. Retain a bounded encrypted technical history.
+    store.db.execute('INSERT INTO diagnostics(source,payload) VALUES (?,?)',(source,json.dumps(diagnostics.clean(payload))))
+    store.db.execute('DELETE FROM diagnostics WHERE sequence NOT IN (SELECT sequence FROM diagnostics ORDER BY sequence DESC LIMIT 50)')
+
+def extract_proposals(name, content, import_key, source=None):
+    ext=Path(name).suffix.lower().lstrip('.')
+    try:
+        from .parser import extract
+        parsed=extract(name,content)
+        candidates=[normalize(r) for r in parsed['candidates']]
+    except Exception as exc:
+        from .parser import ExtractionError
+        code=exc.code if isinstance(exc,ExtractionError) else 'extraction_failed'
+        with store.mutex:
+            if store.db and store.key==import_key and (not source or store.rows('SELECT id FROM documents WHERE id=?',(source,))):
+                remember_diagnostic(diagnostics.report(ext,error=code),source);store.save()
+        raise HTTPException(422,'No se pudo extraer con seguridad. Descarga el diagnóstico técnico en Privacidad. Máximo 40 páginas, 8 escaneadas, 20 megapíxeles o 2000 filas. Comprueba el archivo.') from None
+    return {'observations':candidates,'records':parsed['records'],'notices':parsed['notices'],
+        'pages':parsed['pages'],'diagnostic':diagnostics.report(ext,parsed,candidates)}
+
 def ingest(filename, mime, content, synthetic=False):
     ext=Path(filename).suffix.lower()
     allowed={'.pdf':{'application/pdf'},'.csv':{'text/csv','application/vnd.ms-excel','text/plain'},'.json':{'application/json','text/plain'},'.png':{'image/png'},'.jpg':{'image/jpeg'},'.jpeg':{'image/jpeg'}}
@@ -179,18 +200,14 @@ def ingest(filename, mime, content, synthetic=False):
         import_key=store.key
         exists=store.rows('SELECT id FROM documents WHERE sha=?',(digest,))
         if exists: raise HTTPException(409,'Este documento ya está importado')
-    try:
-        from .parser import extract
-        parsed=extract(safe,content)
-    except Exception: raise HTTPException(422,'No se pudo extraer con seguridad. Máximo 40 páginas, 8 escaneadas, 20 megapíxeles o 2000 filas. Comprueba el archivo.')
-    candidates=[normalize(r) for r in parsed['candidates']]
+    pending=extract_proposals(safe,content,import_key)
     doc_id=uid()
     with store.mutex:
         if not store.db or store.key!=import_key: raise HTTPException(401,'Perfil cambiado o sesión bloqueada; vuelve a importar')
         if store.rows('SELECT id FROM documents WHERE sha=?',(digest,)): raise HTTPException(409,'Documento duplicado')
-        pending={'observations':candidates,'records':parsed['records'],'notices':parsed['notices'],'pages':parsed['pages']}
         store.original(doc_id,content)
-        store.db.execute('INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?)',(doc_id,safe,digest,mime,'\n'.join(p['text'] for p in parsed['pages']),now(),'pending',json.dumps(pending),int(synthetic)))
+        store.db.execute('INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?)',(doc_id,safe,digest,mime,'\n'.join(p['text'] for p in pending['pages']),now(),'pending',json.dumps(pending),int(synthetic)))
+        remember_diagnostic(pending['diagnostic'],doc_id)
         store.save()
     return {'id':doc_id}
 
@@ -216,6 +233,51 @@ def original(doc_id:str):
         # Always download: never render active originals in our origin.
         from urllib.parse import quote
         return Response(store.original(doc_id),media_type='application/octet-stream',headers={'Content-Disposition':"attachment; filename*=UTF-8''"+quote(docs[0]['name'])})
+
+def diagnostic_response(events):
+    return JSONResponse(diagnostics.download(events),headers={'Content-Disposition':'attachment; filename="salud-local-diagnostico.json"'})
+
+@app.get('/api/diagnostics')
+def diagnostic_history():
+    with store.mutex:
+        return diagnostic_response([json.loads(row['payload']) for row in store.rows('SELECT payload FROM diagnostics ORDER BY sequence DESC LIMIT 50')])
+
+@app.get('/api/documents/{doc_id}/diagnostics')
+def document_diagnostic(doc_id:str):
+    with store.mutex:
+        rows=store.rows('SELECT candidates FROM documents WHERE id=?',(doc_id,))
+        if not rows: raise HTTPException(404,'Documento no encontrado')
+        payload=json.loads(rows[0]['candidates']).get('diagnostic',{'error':'diagnostics_unavailable'})
+        return diagnostic_response([payload])
+
+@app.delete('/api/diagnostics')
+def clear_diagnostics():
+    with store.mutex:
+        require_idle()
+        store.db.execute('DELETE FROM diagnostics')
+        for row in store.rows('SELECT id,candidates FROM documents'):
+            payload=json.loads(row['candidates']);payload.pop('diagnostic',None)
+            store.db.execute('UPDATE documents SET candidates=? WHERE id=?',(json.dumps(payload),row['id']))
+        store.save()
+    return {'ok':True}
+
+@app.post('/api/documents/{doc_id}/reextract')
+def reextract(doc_id:str):
+    with store.mutex:
+        rows=store.rows('SELECT name,status,candidates FROM documents WHERE id=?',(doc_id,))
+        if not rows: raise HTTPException(404,'Documento no encontrado')
+        snapshot=rows[0]
+        if snapshot['status']!='pending': raise HTTPException(409,'Solo se pueden volver a extraer documentos pendientes')
+        import_key=store.key;content=store.original(doc_id)
+    pending=extract_proposals(snapshot['name'],content,import_key,doc_id)
+    with store.mutex:
+        if not store.db or store.key!=import_key: raise HTTPException(401,'Perfil cambiado o sesión bloqueada')
+        current=store.rows('SELECT status,candidates FROM documents WHERE id=?',(doc_id,))
+        if not current or current[0]['status']!='pending' or current[0]['candidates']!=snapshot['candidates']:
+            raise HTTPException(409,'El documento ha cambiado; vuelve a abrir la revisión')
+        store.db.execute('UPDATE documents SET text=?,candidates=? WHERE id=?',('\n'.join(p['text'] for p in pending['pages']),json.dumps(pending),doc_id))
+        remember_diagnostic(pending['diagnostic'],doc_id);store.save()
+    return {'ok':True}
 
 @app.post('/api/documents/{doc_id}/confirm')
 def confirm(doc_id:str,body:dict):
@@ -262,6 +324,7 @@ def delete_doc(doc_id:str):
         if not store.rows('SELECT id FROM documents WHERE id=?',(doc_id,)): raise HTTPException(404,'Documento no encontrado')
         for table in ('observations','records','chunks'): store.db.execute(f'DELETE FROM {table} WHERE source=?',(doc_id,))
         store.db.execute('DELETE FROM documents WHERE id=?',(doc_id,))
+        store.db.execute('DELETE FROM diagnostics WHERE source=?',(doc_id,))
         # Derived histories can contain deleted data; remove them rather than leave stale evidence.
         store.db.execute('DELETE FROM reviews'); store.db.execute('DELETE FROM chats'); JOBS.clear(); store.save()
         (ROOT/'originals'/(doc_id+'.bin')).unlink(missing_ok=True)

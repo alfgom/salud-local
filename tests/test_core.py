@@ -181,6 +181,88 @@ def test_no_plaintext_upload_spooling_and_no_telemetry(client):
     assert MultiPartParser.spool_max_size>m.MAX_FILE
     assert all(m.app._telemetry[k] is False for k in ('tracing','metrics','logs','auto_configure'))
 
+def test_diagnostics_failure_privacy_and_retention(client,monkeypatch):
+    c,m=client
+    from app import parser
+    secret='SYNTHETIC_PRIVATE_FAILURE'
+    def fail(*args): raise ValueError(secret)
+    monkeypatch.setattr(parser,'extract',fail)
+    for _ in range(52):
+        response=c.post('/api/import',files={'file':(secret+'.pdf',b'%PDF-SYNTHETIC','application/pdf')})
+        assert response.status_code==422 and secret not in response.text
+    response=c.get('/api/diagnostics')
+    assert len(response.json()['events'])==50
+    assert secret not in response.text
+    assert response.json()['events'][0]['error']=='extraction_failed'
+    assert 'salud-local-diagnostico.json' in response.headers['content-disposition']
+    assert response.headers['cache-control']=='no-store'
+    assert b'extraction_failed' not in (m.ROOT/'vault.bin').read_bytes()
+    assert c.delete('/api/diagnostics').status_code==200
+    assert c.get('/api/diagnostics').json()['events']==[]
+
+def test_diagnostic_download_reextract_confirm_delete(client):
+    c,m=client
+    rows=[{'date':'2025-07-09','metric':'glucose','value':97.3,'unit':'mg/dL','note':'SYNTHETIC_PRIVATE_NOTE'}]
+    doc=upload(c,rows,'SYNTHETIC_PRIVATE_NAME.json').json()['id']
+    response=c.get('/api/documents/'+doc+'/diagnostics')
+    assert response.json()['events'][0]['counts']['proposals']==1
+    for secret in ('SYNTHETIC_PRIVATE','2025-07-09','97.3','glucose',doc): assert secret not in response.text
+    assert c.post('/api/documents/'+doc+'/reextract',json={}).status_code==200
+    assert not c.get('/api/data').json()['observations']
+    assert len(c.get('/api/diagnostics').json()['events'])==2
+    e=c.get('/api/documents/'+doc).json()['extraction']
+    assert c.post('/api/documents/'+doc+'/confirm',json=e).status_code==200
+    assert c.post('/api/documents/'+doc+'/reextract',json={}).status_code==409
+    assert c.delete('/api/documents/'+doc).status_code==200
+    assert c.get('/api/diagnostics').json()['events']==[]
+    assert c.get('/api/documents/'+doc+'/diagnostics').status_code==404
+
+def test_old_documents_and_trace_deletion(client):
+    c,m=client
+    doc=upload(c,[]).json()['id']
+    assert c.delete('/api/diagnostics').status_code==200
+    assert c.get('/api/documents/'+doc+'/diagnostics').json()['events'][0]['error']=='diagnostics_unavailable'
+    assert c.get('/api/documents/'+doc).status_code==200
+    assert c.post('/api/documents/'+doc+'/reextract',json={}).status_code==200
+    assert c.get('/api/documents/'+doc+'/diagnostics').json()['events'][0]['error']=='none'
+    assert c.post('/api/erase',json={'confirmation':'BORRAR TODO'}).status_code==200
+    c.get('/api/status')
+    assert c.get('/api/diagnostics').json()['events']==[]
+
+def test_diagnostics_require_authenticated_session(client):
+    c,m=client
+    doc=upload(c,[]).json()['id']
+    c.cookies.clear()
+    for path in ('/api/diagnostics','/api/documents/'+doc+'/diagnostics'):
+        assert c.get(path).status_code==401
+    assert c.delete('/api/diagnostics').status_code==401
+    assert c.post('/api/documents/'+doc+'/reextract',json={}).status_code==401
+
+def test_pdf_columns_date_and_qualifier_end_to_end(client):
+    # Entirely invented PDF, built in RAM. Separate text objects mimic tabular columns.
+    from pypdf import PdfWriter
+    from pypdf.generic import DictionaryObject,NameObject,DecodedStreamObject
+    c,m=client
+    writer=PdfWriter();page=writer.add_blank_page(width=600,height=800)
+    font=DictionaryObject({NameObject('/Type'):NameObject('/Font'),NameObject('/Subtype'):NameObject('/Type1'),NameObject('/BaseFont'):NameObject('/Helvetica')})
+    page[NameObject('/Resources')]=DictionaryObject({NameObject('/Font'):DictionaryObject({NameObject('/F1'):writer._add_object(font)})})
+    stream=DecodedStreamObject();stream.set_data(b'BT /F1 12 Tf 1 0 0 1 30 730 Tm (Fecha muestra: 22/08/2025) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 30 680 Tm (Glucosa \\(suero/plasma\\)) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 300 680 Tm (97,3) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 370 680 Tm (mg/dL) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 450 680 Tm ([60 - 120]) Tj ET')
+    page[NameObject('/Contents')]=writer._add_object(stream)
+    buffer=io.BytesIO();writer.write(buffer)
+    response=c.post('/api/import',files={'file':('synthetic-columns.pdf',buffer.getvalue(),'application/pdf')})
+    assert response.status_code==200,response.text
+    doc=c.get('/api/documents/'+response.json()['id']).json()
+    row=doc['extraction']['observations'][0]
+    assert row['date']=='2025-08-22' and row['value']==97.3 and row['unit']=='mg/dL'
+    assert row['locator']=='Página 1' and not row['issues']
+    assert doc['status']=='pending' and not c.get('/api/data').json()['observations']
+    report=c.get('/api/documents/'+doc['id']+'/diagnostics').json()['events'][0]
+    assert report['counts']['qualified_labels']==1 and report['counts']['date_recognized']==1
+
 def test_password_rotation_invalidates_other_sessions(client):
     c,m=client
     other=TestClient(m.app,base_url='http://127.0.0.1:8765',headers={'X-Salud-Local':'1'})

@@ -1,0 +1,78 @@
+"""Invented text only. Do not replace these cases with personal reports."""
+import json
+import pytest
+from app.lab_parser import propose
+from app.analytics import normalize
+from app import diagnostics
+
+def pages(*texts):
+    return [{'locator': f'Página {i+1}', 'text': text} for i, text in enumerate(texts)]
+
+def test_sample_date_qualifiers_and_reference_columns():
+    rows, counts = propose(pages('Hematología\nPeso 72 kg',
+        'Fecha muestra: 22/08/2025\nBioquímica\nGlucosa (suero/plasma) 97,3 * mg/dL [ 60 - 120 ]\n'
+        'Colesterol HDL 53 mg/dL [ > 35 ]\nColesterol total 193 mg/dL [ < 210 ]'))
+    assert len(rows) == 3
+    assert all(row['date'] == '2025-08-22' for row in rows)
+    assert normalize(rows[1])['value'] == 97.3
+    assert rows[1]['locator'] == 'Página 2'
+    assert counts['qualified_labels'] == 1
+    assert counts['unmapped_numeric_lines'] == 1
+    assert all(not normalize(row)['issues'] for row in rows)
+
+@pytest.mark.parametrize('header, expected', [
+    ('Fecha muestra: 05/06/2025', '2025-06-05'),
+    ('2025-07-09', '2025-07-09'),
+    ('Fecha: 05/06/2025', ''),
+    ('Fecha muestra: 31/02/2025', ''),
+    ('Fecha muestra: 01/01/2099', ''),
+    ('Fecha nacimiento: 2025-01-01', ''),
+    ('Fecha nacimiento: 1980-01-01 Fecha muestra: 2025-07-09', '2025-07-09'),
+    ('', ''),
+    ('Fecha muestra: 2025-06-05\nFecha muestra: 2025-07-09', ''),
+])
+def test_conservative_dates(header, expected):
+    rows, _ = propose(pages(header+'\nGlucosa 97 mg/dL'))
+    assert rows[0]['date'] == expected
+
+def test_conflicting_sample_headers_apply_to_every_page():
+    rows, counts = propose(pages('Fecha muestra: 2025-06-05\nPeso 72 kg',
+        'Fecha muestra: 2025-07-09\nGlucosa 97 mg/dL'))
+    assert all(row['date'] == '' for row in rows)
+    assert counts['date_conflicting'] == 2
+
+@pytest.mark.parametrize('label', ['Glucosa:97 mg/dL', 'Glucosa; 97 mg/dL', 'Glucosa (suero/plasma):97 mg/dL'])
+def test_label_separators(label):
+    rows, _ = propose(pages('2025-07-09\n'+label))
+    assert rows[0]['value'] == '97'
+
+def test_urine_and_unknown_qualifiers_are_never_serum_glucose():
+    rows, counts = propose(pages('2025-07-09\nGlucosa (orina) 7 mg/dL\nAnálisis de Orina\n'
+        'Glucosa NEGATIVO\nGlucosa 7 mg/dL\nBioquímica\nGlucosa (plasma) 97 mg/dL'))
+    assert len(rows) == 1
+    assert rows[0]['value'] == '97'
+    assert counts['known_label_unmatched'] == 3
+
+def test_inequality_requires_manual_review_never_becomes_exact_value():
+    rows, counts = propose(pages('2025-07-09\nGlucosa <7 mg/dL'))
+    assert rows[0]['value'] == '<7'
+    assert normalize(rows[0])['value'] is None
+    assert any(issue.startswith('Valor') for issue in normalize(rows[0])['issues'])
+    assert counts['comparators'] == 1
+
+def test_technical_export_uses_allowlist_not_text_redaction():
+    private = 'SYNTHETIC_PRIVATE_MARKER'
+    raw = {'format': 'pdf', 'error': 'none', 'parser_version': '2', 'patient': private,
+        'date': '2025-07-09', 'value': 97.3, 'model': private, 'text': private,
+        'filename': private, 'path': private, 'sha': private, 'exception': private,
+        'counts': {'pages': 3, 'proposals': 4, 'private': private, 'validation_value': 2}}
+    result = diagnostics.download([raw])
+    text = json.dumps(result)
+    assert private not in text and '2025-07-09' not in text and '97.3' not in text
+    assert result['events'][0]['counts'] == {'pages': 3, 'proposals': 4, 'validation_value': 2}
+    raw.update(format={'bad': private}, error=[private], parser_version=private)
+    raw['counts'] = {'pages': private, 'proposals': True, 'ocr_pages': -2, 'date_missing': 10**50}
+    cleaned = diagnostics.clean(raw)
+    assert cleaned['counts'] == {'ocr_pages': 0, 'date_missing': 1_000_000}
+    assert private not in json.dumps(cleaned)
+    assert len(diagnostics.download([{}]*100)['events']) == 50

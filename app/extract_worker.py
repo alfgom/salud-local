@@ -21,7 +21,7 @@ try:
 except (ValueError, OSError):
     pass  # Darwin can reject RLIMIT_DATA; parent also watches RSS.
 warnings.simplefilter('error')
-from app.analytics import ALIASES
+from app.lab_parser import propose
 from app.security import install
 install()
 
@@ -37,7 +37,7 @@ def ocr(image):
 
 def extract(name, data):
     ext = name.rsplit('.',1)[-1].lower()
-    pages=[]; candidates=[]; records=[]; notices=[]
+    pages=[]; candidates=[]; records=[]; notices=[]; technical_counts={}
     if ext in ('csv','json'):
         text=data.decode('utf-8-sig')
         if len(text)>2_000_000: raise ValueError('Texto demasiado grande')
@@ -66,7 +66,7 @@ def extract(name, data):
         for i,page in enumerate(reader.pages):
             stream=page.get_contents()
             if stream and len(stream.get_data())>8_000_000: raise ValueError('Página demasiado compleja')
-            text=page.extract_text() or ''
+            text=page.extract_text(extraction_mode='layout') or ''
             if len(text.strip())<15:
                 scanned+=1
                 if scanned>8: raise ValueError('Máximo 8 páginas escaneadas por documento')
@@ -80,6 +80,7 @@ def extract(name, data):
             pages.append({'locator':f'Página {i+1}','text':text[:120000]})
         notices.append('Extracción PDF orientativa: comprueba la página original. No se ejecuta contenido embebido.')
         if scanned: notices.append('OCR local en inglés; verifica especialmente decimales, signos y acentos.')
+        technical_counts['ocr_pages']=scanned
     elif ext in ('png','jpg','jpeg'):
         if not (data.startswith(b'\x89PNG\r\n\x1a\n') or data.startswith(b'\xff\xd8\xff')): raise ValueError('Firma de imagen inválida')
         from PIL import Image
@@ -87,19 +88,15 @@ def extract(name, data):
         image=Image.open(io.BytesIO(data)); image.load()
         pages=[{'locator':'Imagen · OCR','text':ocr(image)}]
         notices.append('OCR local en inglés: toda la extracción requiere revisión visual.')
+        technical_counts['ocr_pages']=1
     else: raise ValueError('Formato no permitido')
     if sum(len(p['text']) for p in pages)>1_000_000: raise ValueError('Documento demasiado extenso')
     if ext not in ('csv','json'):
-        for page in pages:
-            dates=re.findall(r'\b\d{4}-\d{2}-\d{2}\b',page['text'])
-            date=dates[0] if len(set(dates))==1 else ''
-            for line in page['text'].splitlines():
-                for alias in sorted(ALIASES,key=len,reverse=True):
-                    m=re.match(r'\s*'+re.escape(alias)+r'\s*[:;\s]\s*([<>]?\s*\d+(?:[.,]\d+)?)\s*(mg/d[lL]|mmol/[lL]|mmHg|kg|%|h|pasos|lpm)',line,re.I)
-                    if m:
-                        candidates.append({'date':date,'metric':ALIASES[alias],'value':m[1],'unit':m[2], 'locator':page['locator'],'note':'Propuesta automática; cotejada por usuario al confirmar.'}); break
+        candidates, counts=propose(pages)
+        technical_counts.update(counts)
+        notices.append('Cobertura limitada: solo se proponen los 11 indicadores del catálogo. Otras determinaciones y resultados cualitativos permanecen en el documento; una extracción parcial no equivale a un informe completo.')
         if not candidates: notices.append('No se detectaron medidas reconocibles. Puedes añadirlas manualmente y conservar el documento como evidencia.')
-    return {'pages':pages,'candidates':candidates,'records':records,'notices':notices}
+    return {'pages':pages,'candidates':candidates,'records':records,'notices':notices,'technical_counts':technical_counts}
 
 if __name__=='__main__':
     try:

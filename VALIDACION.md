@@ -48,3 +48,9 @@ No es una auditoría independiente ni una certificación de ausencia de vulnerab
 ## Preparación para publicación · 10 de octubre de 2026
 
 33 pruebas superadas, incluidas cinco comprobaciones de la barrera de publicación. Solo se autorizaron 35 archivos de código, documentación, configuración de desarrollo y cuatro ejemplos sintéticos. Los ejemplos tienen huellas SHA-256 en el manifiesto; los hooks están habilitados en esta copia local. La comprobación del historial se ejecuta antes de subir. No se incluyeron datos personales, bóvedas, claves, exportaciones ni entornos locales. GitHub Actions repite las comprobaciones con fixtures sintéticos.
+
+## Diagnóstico de extracción · 10 de octubre de 2026
+
+55 pruebas superadas en 3,58 segundos. JavaScript comprobado sintácticamente. Casos nuevos completamente inventados: PDF generado en memoria con columnas separadas, fechas DD/MM y fechas de muestra entre páginas, rechazo de fechas ambiguas/futuras/inválidas/contradictorias, exclusión de fecha de nacimiento, etiquetas de suero/plasma, resultados de orina y desigualdades que exigen corrección manual.
+
+El diagnóstico técnico se comprueba por lista permitida: sin texto, fechas, resultados, nombres, identificadores ni excepciones arbitrarias. También se prueban autenticación, retención de 50 eventos cifrados, descarga por documento, compatibilidad con documentos sin trazas, borrado de trazas/perfil/documento y reextracción exclusivamente de documentos pendientes sin consolidar datos. No se usó el PDF personal para estas pruebas ni se convirtió ninguna captura clínica en un fixture. La cobertura del catálogo sigue limitada a 11 indicadores y se indica en la revisión.

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS chunks(id TEXT PRIMARY KEY, source TEXT, locator TEXT
 CREATE TABLE IF NOT EXISTS reviews(id TEXT PRIMARY KEY, created TEXT, payload TEXT);
 CREATE TABLE IF NOT EXISTS chats(id TEXT PRIMARY KEY, created TEXT, question TEXT, payload TEXT);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS diagnostics(sequence INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, payload TEXT);
 '''
 
 def atomic(path, data):

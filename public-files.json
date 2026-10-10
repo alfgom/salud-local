@@ -14,7 +14,9 @@
     "VALIDACION.md",
     "app/__init__.py",
     "app/analytics.py",
+    "app/diagnostics.py",
     "app/extract_worker.py",
+    "app/lab_parser.py",
     "app/llm.py",
     "app/main.py",
     "app/parser.py",
@@ -33,6 +35,7 @@
     "scripts/check_publication.py",
     "tests/check_macos_network.py",
     "tests/test_core.py",
+    "tests/test_extraction.py",
     "tests/test_publication.py"
   ],
   "synthetic_sha256": {
