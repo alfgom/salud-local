@@ -1,0 +1,5 @@
+date,metric,value,unit,note
+03/04/2026,glucose,5.5,mmol/L,Fecha ambigua a revisar
+2026-05-01,ldl,120,mg/dL,Medida sintética
+2026-05-01,ldl,120,mg/dL,Duplicado sintético
+2026-06-01,weight,780,kg,Error de decimal sintético

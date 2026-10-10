@@ -1,0 +1,46 @@
+# Entorno, caches y archivos del sistema
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.DS_Store
+.idea/
+.vscode/
+# Nunca versionar datos reales, derivados, modelos ni secretos
+local-data/
+datos_privados/
+originals/
+backups/
+00_inbox/
+01_originales/
+02_procesados/
+03_perfil/
+04_linea_temporal/
+05_consultas_externas/
+06_informes_para_medico/
+99_logs/
+.env
+.env.*
+*.bin
+*.db
+*.sqlite*
+*.zip
+*.bak
+*.log
+*.key
+*.pem
+key.json
+*.gguf
+# Documentos y exportaciones: solo se admiten los ejemplos sintéticos exactos
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.csv
+*.json
+!public-files.json
+!examples/analitica-sintetica.pdf
+!examples/analitica-sintetica.png
+!examples/ejemplo-sintetico.json
+!examples/revision-necesaria.csv

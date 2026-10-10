@@ -1,0 +1,270 @@
+{
+  "observations": [
+    {
+      "date": "2026-01-15",
+      "metric": "ldl",
+      "value": 142,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-02-15",
+      "metric": "ldl",
+      "value": 137,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-03-15",
+      "metric": "ldl",
+      "value": 131,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-04-15",
+      "metric": "ldl",
+      "value": 126,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-05-15",
+      "metric": "ldl",
+      "value": 121,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-06-15",
+      "metric": "ldl",
+      "value": 118,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-01-15",
+      "metric": "glucose",
+      "value": 103,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-02-15",
+      "metric": "glucose",
+      "value": 101,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-03-15",
+      "metric": "glucose",
+      "value": 99,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-04-15",
+      "metric": "glucose",
+      "value": 102,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-05-15",
+      "metric": "glucose",
+      "value": 97,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-06-15",
+      "metric": "glucose",
+      "value": 98,
+      "unit": "mg/dL",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-01-15",
+      "metric": "weight",
+      "value": 79.4,
+      "unit": "kg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-02-15",
+      "metric": "weight",
+      "value": 78.9,
+      "unit": "kg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-03-15",
+      "metric": "weight",
+      "value": 78.3,
+      "unit": "kg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-04-15",
+      "metric": "weight",
+      "value": 78,
+      "unit": "kg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-05-15",
+      "metric": "weight",
+      "value": 77.6,
+      "unit": "kg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-06-15",
+      "metric": "weight",
+      "value": 77.2,
+      "unit": "kg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-01-15",
+      "metric": "sleep",
+      "value": 6.5,
+      "unit": "h",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-02-15",
+      "metric": "sleep",
+      "value": 6.8,
+      "unit": "h",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-03-15",
+      "metric": "sleep",
+      "value": 6.7,
+      "unit": "h",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-04-15",
+      "metric": "sleep",
+      "value": 7.1,
+      "unit": "h",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-05-15",
+      "metric": "sleep",
+      "value": 7.2,
+      "unit": "h",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-06-15",
+      "metric": "sleep",
+      "value": 7.3,
+      "unit": "h",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-01-15",
+      "metric": "steps",
+      "value": 5100,
+      "unit": "pasos",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-02-15",
+      "metric": "steps",
+      "value": 5400,
+      "unit": "pasos",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-03-15",
+      "metric": "steps",
+      "value": 6200,
+      "unit": "pasos",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-04-15",
+      "metric": "steps",
+      "value": 5900,
+      "unit": "pasos",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-05-15",
+      "metric": "steps",
+      "value": 6700,
+      "unit": "pasos",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-06-15",
+      "metric": "steps",
+      "value": 7100,
+      "unit": "pasos",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-01-15",
+      "metric": "systolic",
+      "value": 132,
+      "unit": "mmHg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-02-15",
+      "metric": "systolic",
+      "value": 130,
+      "unit": "mmHg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-03-15",
+      "metric": "systolic",
+      "value": 128,
+      "unit": "mmHg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-04-15",
+      "metric": "systolic",
+      "value": 129,
+      "unit": "mmHg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-05-15",
+      "metric": "systolic",
+      "value": 126,
+      "unit": "mmHg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    },
+    {
+      "date": "2026-06-15",
+      "metric": "systolic",
+      "value": 125,
+      "unit": "mmHg",
+      "note": "EJEMPLO SINTÉTICO. No corresponde a ninguna persona."
+    }
+  ],
+  "records": [
+    {
+      "kind": "note",
+      "title": "Perfil de demostración",
+      "date": "2026-06-15",
+      "detail": "Datos inventados para comprobar tendencias. Sueño y pasos son promedios mensuales de ejemplo. No usar para decisiones de salud."
+    },
+    {
+      "kind": "medication",
+      "title": "Medicación pendiente de documentar",
+      "date": "2026-06-15",
+      "detail": "Ejemplo sintético: no se ha incorporado una lista de medicación ni su vigencia."
+    }
+  ]
+}

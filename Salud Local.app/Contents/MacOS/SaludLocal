@@ -1,0 +1,5 @@
+#!/bin/zsh
+PROJECT="${0:A:h:h:h:h}"
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+cd "$PROJECT"
+exec "$PROJECT/.venv/bin/python" "$PROJECT/launch.py"
