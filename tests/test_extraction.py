@@ -2,7 +2,7 @@
 import json
 import pytest
 from app.lab_parser import propose
-from app.analytics import normalize, METRICS
+from app.analytics import normalize, METRICS, literal_record
 from app import diagnostics
 
 def pages(*texts):
@@ -129,3 +129,32 @@ def test_reasons_distinguish_partial_coverage_without_names():
 
 def test_legacy_report_version_remains_shareable():
     assert diagnostics.clean({'parser_version':'2','error':'none','format':'pdf'})['parser_version'] == '2'
+    assert diagnostics.clean({'parser_version':'3','error':'none','format':'pdf'})['parser_version'] == '3'
+
+def test_comparators_have_separate_technical_validation_counts():
+    rows=[normalize({'date':'2025-08-22','metric':'ferritin','value':value,'unit':'ng/mL'})
+          for value in ('≤2,7','bad synthetic number','105')]
+    diagnostic=diagnostics.report('pdf',rows=rows)
+    assert diagnostic['counts']['validation_value']==2
+    assert diagnostic['counts']['validation_comparator']==1
+    assert diagnostic['counts']['validation_numeric']==1
+    assert 'Valor acotado' in rows[0]['issues'][0]
+    assert rows[0]['raw_value']=='≤2,7' and rows[0]['value'] is None
+    assert '2,7' not in json.dumps(diagnostic)
+
+def test_unknown_numeric_context_counts_do_not_identify_results():
+    _, counts=propose(pages('2025-08-22\nEtiqueta ficticia 12 mg/dL\n'
+        'Análisis de Orina\nOtra etiqueta ficticia 23\nHematología\nTercera etiqueta ficticia 34 mg/dL'))
+    assert counts['unknown_numeric_label']==3
+    assert counts['unknown_numeric_in_urine']==1
+    assert counts['unknown_numeric_outside_urine']==2
+
+def test_literal_record_preserves_constraint_and_current_edits():
+    row={'date':'2025-08-22','metric':'ferritin','value':None,'raw_value':'≤2,7','unit':'ng/mL','locator':'Página 2'}
+    record=literal_record(row)
+    assert record['kind']=='lab_result' and record['date']=='2025-08-22'
+    assert '≤2,7 ng/mL' in record['detail'] and 'Página 2' in record['detail']
+    assert '≤3,9' in literal_record(row|{'value':'≤3,9'})['detail']
+    with pytest.raises(ValueError): literal_record(row|{'value':'105'})
+    with pytest.raises(ValueError): literal_record(row|{'date':'05/06/2025'})
+    with pytest.raises(ValueError): literal_record(row|{'metric':'unknown-synthetic-marker'})

@@ -288,6 +288,46 @@ def test_added_series_in_review_and_original_traces(client):
         assert any(item['type']=='DATO' and item['sources']==[doc] for item in areas[area])
     assert all(trend['sources']==[doc] and trend['percent']==0 for trend in review['trends'])
 
+def test_censored_result_can_be_confirmed_as_literal_without_numeric_trend(client):
+    c,m=client
+    rows=[{'date':'2025-08-22','metric':'ferritin','value':'≤2,7','unit':'ng/mL','locator':'Página 2'},
+          {'date':'2025-08-22','metric':'glucose','value':97.3,'unit':'mg/dL'}]
+    doc=upload(c,rows).json()['id']
+    extraction=c.get('/api/documents/'+doc).json()['extraction']
+    assert c.post('/api/documents/'+doc+'/confirm',json=extraction).status_code==422
+    row=extraction['observations'][0]
+    response=c.post('/api/literal-proposal',json={'row':row})
+    assert response.status_code==200
+    record=response.json()
+    data=c.get('/api/data').json()
+    assert not data['observations'] and not data['records']
+    extraction['observations']=extraction['observations'][1:]
+    extraction['records'].append(record)
+    assert c.post('/api/documents/'+doc+'/confirm',json=extraction).status_code==200
+    data=c.get('/api/data').json()
+    assert len(data['observations'])==1 and data['observations'][0]['metric']=='glucose'
+    assert data['records'][0]['source']==doc and data['records'][0]['kind']=='lab_result'
+    assert '≤2,7' in data['records'][0]['detail']
+    assert all(t['metric']!='ferritin' for t in data['trends'])
+    state=job(c,'/api/reviews',{'use_ai':False});assert state['status']=='done'
+    review=c.get('/api/reviews/'+state['result_id']).json()['payload']
+    lab=next(s for s in review['sections'] if s['area']=='Otros resultados de laboratorio')
+    assert any(i['type']=='EVIDENCIA' and '≤2,7' in i['text'] and i['sources']==[doc] for i in lab['items'])
+    report=c.get('/api/documents/'+doc+'/diagnostics')
+    assert '≤2,7' not in report.text and 'ferritin' not in report.text
+    assert report.json()['events'][0]['counts']['validation_comparator']==1
+    assert report.json()['events'][0]['counts']['validation_numeric']==0
+    assert c.delete('/api/documents/'+doc).status_code==200
+    data=c.get('/api/data').json();assert not data['records'] and not data['reviews']
+
+def test_literal_proposal_endpoint_validation_and_auth(client):
+    c,m=client
+    row={'date':'2025-08-22','metric':'ferritin','value':'105','unit':'ng/mL'}
+    assert c.post('/api/literal-proposal',json={'row':row}).status_code==422
+    assert c.post('/api/literal-proposal',json={'row':[]}).status_code==400
+    c.cookies.clear()
+    assert c.post('/api/literal-proposal',json={'row':row|{'value':'≤2,7'}}).status_code==401
+
 def test_password_rotation_invalidates_other_sessions(client):
     c,m=client
     other=TestClient(m.app,base_url='http://127.0.0.1:8765',headers={'X-Salud-Local':'1'})

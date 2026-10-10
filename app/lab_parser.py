@@ -4,7 +4,7 @@ import re
 import unicodedata
 from .analytics import ALIASES, METRICS, canonical_unit
 
-VERSION = '3'
+VERSION = '4'
 DATE = re.compile(r'\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{4})\b')
 SAMPLE = re.compile(r'fecha\s+(?:de\s+)?(?:la\s+)?(?:muestra|extraccion|toma|analisis)')
 
@@ -48,7 +48,8 @@ def propose(pages):
     counts = {key: 0 for key in ('pages', 'date_recognized', 'date_missing', 'date_ambiguous',
               'date_invalid', 'date_conflicting', 'numeric_lines', 'unmapped_numeric_lines',
               'known_label_unmatched', 'qualified_labels', 'comparators', 'unknown_numeric_label',
-              'specimen_excluded', 'qualitative_results', 'label_unparsed', 'unit_unrecognized')}
+              'specimen_excluded', 'qualitative_results', 'label_unparsed', 'unit_unrecognized',
+              'unknown_numeric_in_urine', 'unknown_numeric_outside_urine')}
     counts['catalog_size'] = len(METRICS)
     page_dates = [dates_in(p['text']) for p in pages]
     preferred = [entry for explicit, _ in page_dates for entry in explicit]
@@ -98,5 +99,7 @@ def propose(pages):
             if known and not matched:
                 counts['known_label_unmatched'] += 1; counts[reason] += 1
             if numeric and not matched: counts['unmapped_numeric_lines'] += 1
-            if numeric and not known: counts['unknown_numeric_label'] += 1
+            if numeric and not known:
+                counts['unknown_numeric_label'] += 1
+                counts['unknown_numeric_in_urine' if urine else 'unknown_numeric_outside_urine'] += 1
     return candidates, counts

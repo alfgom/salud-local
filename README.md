@@ -91,7 +91,7 @@ date,metric,value,unit,note
 2026-06-15,weight,77.2,kg,Ejemplo sintético
 ```
 
-JSON: lista con los mismos campos, o `{ "observations": [...], "records": [...] }`. Un registro contiene `kind` (`medication`, `condition`, `note`, `prevention`), `title`, `date` ISO y `detail`. Ejemplos completos en `examples/`.
+JSON: lista con los mismos campos, o `{ "observations": [...], "records": [...] }`. Un registro contiene `kind` (`medication`, `condition`, `note`, `prevention`, `lab_result`), `title`, `date` ISO y `detail`. `lab_result` conserva un resultado literal revisado, separado de las medidas numéricas. Ejemplos completos en `examples/`.
 
 Fechas ambiguas y futuras, valores no finitos, unidades incompatibles e indicadores desconocidos bloquean la confirmación. Las envolventes de valor son controles amplios de plausibilidad de formato, **no intervalos de referencia clínica**. Conversión explícita mmol/L → mg/dL para glucosa, LDL/HDL y triglicéridos, con factor registrado. Para un dato raro pero real fuera de esas envolventes, consérvalo como nota y consulta su significado; no alteres el valor para que pase la validación.
 
@@ -135,7 +135,11 @@ El extractor propone fechas ISO o DD/MM/AAAA bajo una etiqueta de fecha de muest
 
 El catálogo contiene 41 indicadores: las series iniciales de salud diaria y metabolismo, colesterol total, hemograma (recuentos absolutos separados de porcentajes), creatinina/urato, enzimas hepáticas, hierro/ferritina y CEA/PSA. No calcula decisiones clínicas ni recomienda solicitar marcadores por incluirlos en el catálogo. Los indicadores nuevos tienen límites técnicos amplios, no intervalos clínicos. Las unidades se contrastan con el catálogo; `x10³/mm³` y `10^3/µL`, por ejemplo, son grafías equivalentes y se normalizan sin alterar la cifra. Exponentes incompatibles y unidades ausentes requieren corrección. No se añaden conversiones inferidas de valores ni rangos impresos.
 
-Resultados cualitativos, orina y etiquetas fuera del catálogo se mantienen como evidencia documental. El panel de alcance y el diagnóstico versión 3 distinguen etiquetas desconocidas, resultados cualitativos en etiquetas conocidas, muestras excluidas, formatos no reconocidos y unidades pendientes. Sus contadores son aproximados, no un recuento clínico completo: pueden incluir cabeceras y omitir filas difíciles de reconocer. Las desigualdades se muestran literalmente y bloquean la consolidación como número exacto; puedes retirar esa propuesta y conservar la evidencia. Las nuevas series aparecen también en las áreas de hematología, función renal/hepática y otros resultados de laboratorio del Health Review.
+Resultados cualitativos, orina y etiquetas fuera del catálogo se mantienen como evidencia documental. El panel de alcance distingue etiquetas desconocidas, resultados cualitativos en etiquetas conocidas, muestras excluidas, formatos no reconocidos y unidades pendientes. El diagnóstico versión 4 separa validaciones de resultados acotados de otros errores numéricos y sitúa etiquetas numéricas desconocidas dentro/fuera de una sección de orina. Solo exporta contadores, nunca las etiquetas ni sus resultados. Las versiones anteriores siguen legibles.
+
+Sus contadores son aproximados, no un recuento clínico completo: pueden incluir cabeceras y omitir filas difíciles de reconocer. Describen las propuestas de la extracción original; no representan los cambios manuales ni el estado final de la confirmación. No se amplía el catálogo automáticamente a partir de una etiqueta desconocida.
+
+Para un resultado con `<`, `>`, `≤` o `≥`, pulsa **Conservar resultado literal** en su fila. Se prepara un registro `lab_result` con la expresión, unidad, fecha y ubicación; sigue pendiente de tu cotejo y confirmación. La fecha debe ser válida. El registro aparece como **EVIDENCIA** en Datos y en **Otros resultados de laboratorio** del Health Review, con enlace al documento. Se excluye de medias, porcentajes, outliers y gráficos numéricos. No sustituyas un límite por el número que aparece después del signo. Si prefieres, puedes retirar la propuesta y mantener el original. Las nuevas series cuantitativas aparecen también en las áreas de hematología y función renal/hepática del Health Review.
 
 ## Copia y recuperación
 

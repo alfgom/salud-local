@@ -83,6 +83,22 @@ def canonical_unit(unit, canonical):
             return canonical
     return str(unit).strip()
 
+def is_comparator(value):
+    return bool(re.fullmatch(r'[<>≤≥]\s*\d+(?:[.,]\d+)?', str(value).strip()))
+
+def literal_record(row):
+    """Prepare an explicit human-reviewed record, never a numeric observation."""
+    normalized = normalize(row)
+    raw = str(row.get('value') if row.get('value') is not None else row.get('raw_value','')).strip()
+    if not is_comparator(raw) or normalized['metric'] not in METRICS:
+        raise ValueError('Selecciona un indicador y un resultado con menor/mayor que')
+    if any(issue.startswith('Fecha') for issue in normalized['issues']):
+        raise ValueError('Corrige la fecha antes de conservar el resultado literal')
+    unit = str(row.get('unit','')).strip()[:100]
+    return {'kind':'lab_result', 'title':METRICS[normalized['metric']][0]+' · resultado acotado',
+        'date':normalized['date'], 'detail':f"Resultado literal: {raw[:100]} {unit}. Origen: {normalized['locator']}. "
+        'No es un valor exacto; queda excluido de medias, porcentajes y tendencias numéricas.'}
+
 def normalize(row):
     errors = []
     metric = ALIASES.get(str(row.get('metric', '')).strip().lower(), str(row.get('metric','')).strip().lower())
@@ -102,8 +118,10 @@ def normalize(row):
         value = None; errors.append('Valor numérico inválido')
     unit = str(row.get('unit','')).strip()
     note = str(row.get('note',''))[:1000]
-    comparator = bool(re.fullmatch(r'[<>≤≥]\s*\d+(?:[.,]\d+)?', raw_value))
+    comparator = is_comparator(raw_value)
     if comparator:
+        errors = [issue for issue in errors if issue != 'Valor numérico inválido']
+        errors.append('Valor acotado: conserva el resultado literal; no lo sustituyas por una cifra exacta')
         note += f' Resultado acotado del documento: {raw_value}; no es un valor exacto.'
     if metric not in METRICS:
         errors.append('Indicador no reconocido: selecciona uno del catálogo')

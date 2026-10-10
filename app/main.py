@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from .store import Store
-from .analytics import METRICS, normalize, calculate
+from .analytics import METRICS, normalize, calculate, literal_record
 from . import rag, llm, diagnostics
 
 BASE=Path(__file__).resolve().parent.parent
@@ -279,6 +279,13 @@ def reextract(doc_id:str):
         remember_diagnostic(pending['diagnostic'],doc_id);store.save()
     return {'ok':True}
 
+@app.post('/api/literal-proposal')
+def prepare_literal(body:dict):
+    row=body.get('row')
+    if not isinstance(row,dict): raise HTTPException(400,'Propuesta inválida')
+    try: return literal_record(row)
+    except ValueError as exc: raise HTTPException(422,str(exc)) from None
+
 @app.post('/api/documents/{doc_id}/confirm')
 def confirm(doc_id:str,body:dict):
     raw=body.get('observations',[]); records=body.get('records',[])
@@ -287,7 +294,7 @@ def confirm(doc_id:str,body:dict):
     if any(r['issues'] for r in normalized): raise HTTPException(422,{'message':'Corrige las filas antes de confirmar','rows':normalized})
     clean_records=[]
     for r in records:
-        if r.get('kind') not in ('medication','condition','note','prevention') or not r.get('title'): raise HTTPException(422,'Registro: elige medication, condition, note o prevention y un título')
+        if r.get('kind') not in ('medication','condition','note','prevention','lab_result') or not r.get('title'): raise HTTPException(422,'Registro: elige medication, condition, note, prevention o lab_result y un título')
         try:
             date=dt.date.fromisoformat(r.get('date',''))
             if date>dt.date.today() or date.year<1900: raise ValueError()
@@ -360,6 +367,9 @@ def deterministic_review(ctx,previous):
         if area in ('Medicación','Prevención'):
             kind='medication' if area=='Medicación' else 'prevention'
             items=[{'type':'DATO','text':r['title']+' · '+r['detail']+' · Registrado '+r['date']+'; vigencia no verificada.','sources':[r['source']]} for r in ctx['records'] if r['kind']==kind]
+        if area=='Otros resultados de laboratorio':
+            items.extend({'type':'EVIDENCIA','text':r['title']+' · '+r['detail']+' · Registrado '+r['date'],
+                          'sources':[r['source']]} for r in ctx['records'] if r['kind']=='lab_result')
         if area=='Temas a vigilar':
             items=[{'type':'CÁLCULO','text':f"{t['label']}: valores atípicos estadísticos en {', '.join(t['outliers'])}; no son alertas clínicas.",'sources':t['sources']} for t in ctx['trends'] if t['outliers']]
         if area=='Información faltante':
