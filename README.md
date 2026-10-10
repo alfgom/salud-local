@@ -131,7 +131,11 @@ Las últimas 50 extracciones, incluidos fallos del parser, se guardan dentro de 
 
 Los documentos importados con versiones anteriores no tienen trazas retroactivas. Abre un documento **pendiente** y pulsa **Volver a extraer este documento** para aplicar el nuevo extractor y generar un diagnóstico. Se sustituyen las propuestas y cambios sin confirmar, con aviso previo; el original permanece y nada se incorpora automáticamente. Los documentos confirmados no se reprocesan mediante este botón.
 
-El extractor propone fechas ISO o DD/MM/AAAA bajo una etiqueta de fecha de muestra en español. Fechas sin contexto que puedan leerse como día/mes o mes/día se dejan vacías. Una fecha de muestra única puede aplicarse a otras páginas; fechas de muestra contradictorias requieren revisión. Admite aclaraciones de suero/plasma y columnas PDF mediante extracción de disposición. No equipara resultados de orina a glucosa sérica, ni convierte desigualdades en valores exactos. El catálogo sigue limitado a 11 indicadores; otras determinaciones y resultados cualitativos se conservan como evidencia documental y no se consolidan como medidas. Los contadores de líneas no mapeadas son aproximados, no un recuento clínico completo.
+El extractor propone fechas ISO o DD/MM/AAAA bajo una etiqueta de fecha de muestra en español. Fechas sin contexto que puedan leerse como día/mes o mes/día se dejan vacías. Una fecha de muestra única puede aplicarse a otras páginas; fechas de muestra contradictorias requieren revisión. Admite aclaraciones de suero/plasma y columnas PDF mediante extracción de disposición. No equipara resultados de orina a glucosa sérica, ni convierte desigualdades en valores exactos.
+
+El catálogo contiene 41 indicadores: las series iniciales de salud diaria y metabolismo, colesterol total, hemograma (recuentos absolutos separados de porcentajes), creatinina/urato, enzimas hepáticas, hierro/ferritina y CEA/PSA. No calcula decisiones clínicas ni recomienda solicitar marcadores por incluirlos en el catálogo. Los indicadores nuevos tienen límites técnicos amplios, no intervalos clínicos. Las unidades se contrastan con el catálogo; `x10³/mm³` y `10^3/µL`, por ejemplo, son grafías equivalentes y se normalizan sin alterar la cifra. Exponentes incompatibles y unidades ausentes requieren corrección. No se añaden conversiones inferidas de valores ni rangos impresos.
+
+Resultados cualitativos, orina y etiquetas fuera del catálogo se mantienen como evidencia documental. El panel de alcance y el diagnóstico versión 3 distinguen etiquetas desconocidas, resultados cualitativos en etiquetas conocidas, muestras excluidas, formatos no reconocidos y unidades pendientes. Sus contadores son aproximados, no un recuento clínico completo: pueden incluir cabeceras y omitir filas difíciles de reconocer. Las desigualdades se muestran literalmente y bloquean la consolidación como número exacto; puedes retirar esa propuesta y conservar la evidencia. Las nuevas series aparecen también en las áreas de hematología, función renal/hepática y otros resultados de laboratorio del Health Review.
 
 ## Copia y recuperación
 
@@ -158,7 +162,7 @@ Las pruebas de modelos con dobles verifican el contrato; no prueban exactitud cl
 
 ## Límites conocidos y siguientes extensiones
 
-- Catálogo estructurado inicial de 11 indicadores; documentos adicionales siguen conservándose y recuperándose.
+- Catálogo estructurado limitado a 41 indicadores. Resultados cualitativos, orina y otras determinaciones siguen como evidencia documental; no se garantiza una extracción completa.
 - OCR inglés y heurísticas sencillas; no garantiza comprensión de tablas, rangos de referencia ni manuscritos.
 - RAG léxico, sin guías ni embeddings semánticos. La ventana de contexto puede omitir información.
 - No cálculo de riesgo cardiovascular, recomendaciones individualizadas de cribado, comprobación de interacciones, diagnóstico ni urgencias.

@@ -344,7 +344,7 @@ def llm_context(ctx,question):
     return {'pregunta':question,'trends':trends,'records':ctx['records'][:20],'evidence':ctx['evidence'][:4],
       'source_ids':ctx['source_ids'],'limitaciones':'Contexto acotado: tendencias agregadas, hasta 20 registros y 4 fragmentos. Puede omitir información. Sin guías clínicas externas.'}
 
-AREAS=['Resumen general','Cardiovascular','Metabólico','Sueño','Actividad física','Medicación','Prevención','Temas a vigilar','Información faltante','Preguntas para la próxima consulta']
+AREAS=['Resumen general','Cardiovascular','Metabólico','Hematología','Función renal','Función hepática','Otros resultados de laboratorio','Sueño','Actividad física','Medicación','Prevención','Temas a vigilar','Información faltante','Preguntas para la próxima consulta']
 
 def deterministic_review(ctx,previous):
     sections=[]
@@ -382,7 +382,7 @@ def start_job(kind,body):
     with JOB_LOCK,store.mutex:
         require_idle()
         if not store.rows('SELECT id FROM documents WHERE status="confirmed"'): raise HTTPException(400,'Confirma primero al menos un documento')
-        question=str(body.get('question',''))[:1500] if kind=='chat' else 'salud cardiovascular metabólico sueño actividad medicación prevención antecedentes'
+        question=str(body.get('question',''))[:1500] if kind=='chat' else 'salud cardiovascular metabólico hematología renal hepática laboratorio sueño actividad medicación prevención antecedentes'
         if kind=='chat' and not question.strip(): raise HTTPException(400,'Escribe una pregunta')
         ctx=context(question); config=store.setting('models',{'baseline':'qwen3.5:9b'})
         prior=store.rows('SELECT payload FROM reviews ORDER BY created DESC LIMIT 1')

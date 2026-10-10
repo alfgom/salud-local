@@ -2,7 +2,7 @@
 import json
 import pytest
 from app.lab_parser import propose
-from app.analytics import normalize
+from app.analytics import normalize, METRICS
 from app import diagnostics
 
 def pages(*texts):
@@ -11,13 +11,15 @@ def pages(*texts):
 def test_sample_date_qualifiers_and_reference_columns():
     rows, counts = propose(pages('Hematología\nPeso 72 kg',
         'Fecha muestra: 22/08/2025\nBioquímica\nGlucosa (suero/plasma) 97,3 * mg/dL [ 60 - 120 ]\n'
-        'Colesterol HDL 53 mg/dL [ > 35 ]\nColesterol total 193 mg/dL [ < 210 ]'))
-    assert len(rows) == 3
+        'Colesterol HDL 53 mg/dL [ > 35 ]\nColesterol total 193 mg/dL [ < 210 ]\n'
+        'Etiqueta sintética fuera del catálogo 29 mg/dL'))
+    assert len(rows) == 4
     assert all(row['date'] == '2025-08-22' for row in rows)
     assert normalize(rows[1])['value'] == 97.3
     assert rows[1]['locator'] == 'Página 2'
     assert counts['qualified_labels'] == 1
     assert counts['unmapped_numeric_lines'] == 1
+    assert counts['unknown_numeric_label'] == 1
     assert all(not normalize(row)['issues'] for row in rows)
 
 @pytest.mark.parametrize('header, expected', [
@@ -76,3 +78,54 @@ def test_technical_export_uses_allowlist_not_text_redaction():
     assert cleaned['counts'] == {'ocr_pages': 0, 'date_missing': 1_000_000}
     assert private not in json.dumps(cleaned)
     assert len(diagnostics.download([{}]*100)['events']) == 50
+
+def test_extended_lab_table_and_separate_percentage_absolute_series():
+    rows, counts = propose(pages('Fecha muestra: 22/08/2025\nHematología\n'
+        'Hematíes 5,12 x10⁶/mm³ [ 3 - 7 ]\nHemoglobina 13,8 g/dL\n'
+        'Volumen corpuscular medio (VCM) 87 fL\nHemoglobina corpuscular media (HCM) 29 pg\n'
+        'Conc. de hgb. corpuscular media (CHCM) 33 g/dL\nÍndice de anisocitosis (RDW) 12 %\n'
+        'Leucocitos 6,7 x10³/mm³\nNeutrófilos % 58,4 %\nNeutrófilos 3,9 x10³/mm³\n'
+        'Plaquetas 234 x10³/mm³\nBioquímica\nCreatinina 1,03 mg/dL\nUrato 4,9 mg/dL\n'
+        'Aspartato aminotransferasa (AST/GOT) 27 U/L\nAlanina aminotransferasa (ALT/GPT) 33 U/L\n'
+        'Gamma-glutamil transferasa (GGT) 39 U/L\nHierro 93 µg/dL\nFerritina 105 ng/mL\n'
+        'PSA (Antígeno prostático específico) 1,24 ng/mL\nAntígeno Carcinoembrionario (CEA) ≤0,8 ng/mL'))
+    assert len(rows) == 19
+    normalized = {r['metric']: normalize(r) for r in rows}
+    assert normalized['erythrocytes']['unit'] == '10^6/µL'
+    assert normalized['leukocytes']['unit'] == '10^3/µL'
+    assert normalized['neutrophils_pct']['value'] == 58.4
+    assert normalized['neutrophils_abs']['value'] == 3.9
+    assert normalized['iron']['unit'] == 'µg/dL'
+    assert normalized['cea']['raw_value'] == '≤0,8' and normalized['cea']['value'] is None
+    assert all(not r['issues'] for metric, r in normalized.items() if metric != 'cea')
+    assert normalized['cea']['issues']
+    assert counts['unmapped_numeric_lines'] == 0 and counts['comparators'] == 1
+    assert counts['catalog_size'] == len(METRICS)
+
+@pytest.mark.parametrize('unit', ['x10³/mm³', 'x10^3/mm3', '×10³/mm³', '10^3/µL', '10^3/μL', 'x10 3/mm3'])
+def test_equivalent_count_unit_spellings(unit):
+    row = normalize({'date':'2025-08-22','metric':'leukocytes','value':6.7,'unit':unit})
+    assert row['unit'] == '10^3/µL' and row['value'] == 6.7 and not row['issues']
+
+def test_incompatible_exponent_and_missing_unit_are_not_inferred():
+    rows, counts = propose(pages('2025-08-22\nLeucocitos 6,7 x10^6/mm3\nFerritina 105 [ 15 - 300 ]'))
+    assert len(rows) == 2
+    assert rows[1]['unit'] == ''
+    assert all(any(issue.startswith('Unidad') for issue in normalize(row)['issues']) for row in rows)
+    assert counts['unit_unrecognized'] == 2
+
+def test_reasons_distinguish_partial_coverage_without_names():
+    _, counts = propose(pages('2025-08-22\nEtiqueta inventada 29 mg/dL\n'
+        'Glucosa (otro espécimen) 92 mg/dL\nAnálisis de Orina\n'
+        'Leucocitos NEGATIVO\nHematíes 3 x10^6/mm3\nBioquímica\nFerritina 105'))
+    assert counts['unknown_numeric_label'] == 1
+    assert counts['label_unparsed'] == 1
+    assert counts['specimen_excluded'] == 1
+    assert counts['qualitative_results'] == 1
+    assert counts['unit_unrecognized'] == 1
+    exported = json.dumps(diagnostics.download([{'error':'none','parser_version':'3','format':'pdf','counts':counts}]))
+    for private in ('Glucosa', 'Leucocitos', 'Hematíes', 'Ferritina', '2025-08-22', 'NEGATIVO'):
+        assert private not in exported
+
+def test_legacy_report_version_remains_shareable():
+    assert diagnostics.clean({'parser_version':'2','error':'none','format':'pdf'})['parser_version'] == '2'

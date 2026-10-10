@@ -4,7 +4,8 @@ from .lab_parser import VERSION
 COUNT_KEYS = frozenset(('pages', 'ocr_pages', 'proposals', 'date_recognized', 'date_missing',
     'date_ambiguous', 'date_invalid', 'date_conflicting', 'numeric_lines', 'unmapped_numeric_lines',
     'known_label_unmatched', 'qualified_labels', 'comparators', 'validation_date',
-    'validation_unit', 'validation_value', 'validation_metric'))
+    'validation_unit', 'validation_value', 'validation_metric', 'unknown_numeric_label',
+    'specimen_excluded', 'qualitative_results', 'label_unparsed', 'unit_unrecognized', 'catalog_size'))
 FORMATS = frozenset(('pdf', 'csv', 'json', 'png', 'jpeg'))
 ERRORS = frozenset(('none', 'extraction_failed', 'parser_busy', 'parser_timeout', 'parser_memory',
     'parser_output', 'diagnostics_unavailable'))
@@ -17,7 +18,7 @@ def clean(raw):
     version = raw.get('parser_version')
     fmt = raw.get('format'); error = raw.get('error')
     return {'schema': 1, 'component': 'document_extraction',
-        'parser_version': version if version in ('1', VERSION) else 'unknown',
+        'parser_version': version if version in ('1', '2', VERSION) else 'unknown',
         'format': fmt if isinstance(fmt, str) and fmt in FORMATS else 'unknown',
         'error': error if isinstance(error, str) and error in ERRORS else 'extraction_failed',
         'counts': {key: min(max(value, 0), 1_000_000) for key, value in counts.items()

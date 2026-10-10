@@ -22,6 +22,7 @@ except (ValueError, OSError):
     pass  # Darwin can reject RLIMIT_DATA; parent also watches RSS.
 warnings.simplefilter('error')
 from app.lab_parser import propose
+from app.analytics import METRICS
 from app.security import install
 install()
 
@@ -94,7 +95,7 @@ def extract(name, data):
     if ext not in ('csv','json'):
         candidates, counts=propose(pages)
         technical_counts.update(counts)
-        notices.append('Cobertura limitada: solo se proponen los 11 indicadores del catálogo. Otras determinaciones y resultados cualitativos permanecen en el documento; una extracción parcial no equivale a un informe completo.')
+        notices.append(f'Cobertura limitada: catálogo de {len(METRICS)} indicadores. Otras determinaciones, resultados cualitativos y análisis de orina permanecen en el documento; una extracción parcial no equivale a un informe completo.')
         if not candidates: notices.append('No se detectaron medidas reconocibles. Puedes añadirlas manualmente y conservar el documento como evidencia.')
     return {'pages':pages,'candidates':candidates,'records':records,'notices':notices,'technical_counts':technical_counts}
 

@@ -66,7 +66,7 @@ def test_encrypted_vault_password(tmp_path):
 def test_end_to_end_review_traceability(client):
     c,m=client;doc=demo(c);data=c.get('/api/data').json();assert len(data['observations'])==36;assert all(r['source']==doc for r in data['observations'])
     first=job(c,'/api/reviews',{'use_ai':False});assert first['status']=='done'
-    p=c.get('/api/reviews/'+first['result_id']).json()['payload'];assert len(p['sections'])==10;assert p['source_ids']==[doc];assert p['ai'] is None
+    p=c.get('/api/reviews/'+first['result_id']).json()['payload'];assert {s['area'] for s in p['sections']}==set(m.AREAS);assert p['source_ids']==[doc];assert p['ai'] is None
     second=job(c,'/api/reviews',{'use_ai':False});p=c.get('/api/reviews/'+second['result_id']).json()['payload'];assert 'No hay cambios' in p['changes'][0]
     result=job(c,'/api/chat',{'use_ai':False,'question':'colesterol LDL'});assert result['status']=='done';assert c.get('/api/chats').json()[0]['payload']['evidence']
     assert c.get('/api/documents/'+doc+'/original').content==Path('examples/ejemplo-sintetico.json').read_bytes()
@@ -250,7 +250,13 @@ def test_pdf_columns_date_and_qualifier_end_to_end(client):
         b'BT /F1 12 Tf 1 0 0 1 30 680 Tm (Glucosa \\(suero/plasma\\)) Tj ET\n'
         b'BT /F1 12 Tf 1 0 0 1 300 680 Tm (97,3) Tj ET\n'
         b'BT /F1 12 Tf 1 0 0 1 370 680 Tm (mg/dL) Tj ET\n'
-        b'BT /F1 12 Tf 1 0 0 1 450 680 Tm ([60 - 120]) Tj ET')
+        b'BT /F1 12 Tf 1 0 0 1 450 680 Tm ([60 - 120]) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 30 650 Tm (Ferritina) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 300 650 Tm (105) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 370 650 Tm (ng/mL) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 30 620 Tm (Leucocitos) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 300 620 Tm (6,7) Tj ET\n'
+        b'BT /F1 12 Tf 1 0 0 1 370 620 Tm (x10^3/mm3) Tj ET')
     page[NameObject('/Contents')]=writer._add_object(stream)
     buffer=io.BytesIO();writer.write(buffer)
     response=c.post('/api/import',files={'file':('synthetic-columns.pdf',buffer.getvalue(),'application/pdf')})
@@ -259,9 +265,28 @@ def test_pdf_columns_date_and_qualifier_end_to_end(client):
     row=doc['extraction']['observations'][0]
     assert row['date']=='2025-08-22' and row['value']==97.3 and row['unit']=='mg/dL'
     assert row['locator']=='Página 1' and not row['issues']
+    other={r['metric']:r for r in doc['extraction']['observations']}
+    assert other['ferritin']['value']==105 and other['ferritin']['unit']=='ng/mL'
+    assert other['leukocytes']['value']==6.7 and other['leukocytes']['unit']=='10^3/µL'
     assert doc['status']=='pending' and not c.get('/api/data').json()['observations']
     report=c.get('/api/documents/'+doc['id']+'/diagnostics').json()['events'][0]
     assert report['counts']['qualified_labels']==1 and report['counts']['date_recognized']==1
+
+def test_added_series_in_review_and_original_traces(client):
+    c,m=client
+    rows=[{'date':d,'metric':metric,'value':value,'unit':unit} for d in ('2025-07-09','2025-08-22')
+          for metric,value,unit in [('creatinine',1.03,'mg/dL'),('ferritin',105,'ng/mL'),('ast',27,'U/L'),('psa',1.24,'ng/mL')]]
+    doc=upload(c,rows).json()['id']
+    extraction=c.get('/api/documents/'+doc).json()['extraction']
+    assert not c.get('/api/data').json()['observations']
+    assert c.post('/api/documents/'+doc+'/confirm',json=extraction).status_code==200
+    state=job(c,'/api/reviews',{'use_ai':False})
+    assert state['status']=='done'
+    review=c.get('/api/reviews/'+state['result_id']).json()['payload']
+    areas={section['area']:section['items'] for section in review['sections']}
+    for area in ('Función renal','Hematología','Función hepática','Otros resultados de laboratorio'):
+        assert any(item['type']=='DATO' and item['sources']==[doc] for item in areas[area])
+    assert all(trend['sources']==[doc] and trend['percent']==0 for trend in review['trends'])
 
 def test_password_rotation_invalidates_other_sessions(client):
     c,m=client

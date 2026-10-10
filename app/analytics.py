@@ -2,6 +2,7 @@ import datetime as dt
 import math
 import re
 import statistics
+import unicodedata
 from collections import defaultdict
 
 # These are validation envelopes, NOT clinical reference intervals or targets.
@@ -18,9 +19,69 @@ METRICS = {
  'steps': ('Pasos', 'pasos', 0, 150000, 'Actividad física'),
  'heart_rate': ('Frecuencia cardiaca', 'lpm', 10, 300, 'Cardiovascular')
 }
+# Broad technical bounds for additional lab series, never laboratory reference ranges.
+# Specimen-specific urine results deliberately remain outside these blood-series aliases.
+LAB_METRICS = {
+ 'total_cholesterol': ('Colesterol total', 'mg/dL', 'Cardiovascular'),
+ 'creatinine': ('Creatinina', 'mg/dL', 'Función renal'),
+ 'uric_acid': ('Urato', 'mg/dL', 'Función renal'),
+ 'ast': ('Aspartato aminotransferasa (AST/GOT)', 'U/L', 'Función hepática'),
+ 'alt': ('Alanina aminotransferasa (ALT/GPT)', 'U/L', 'Función hepática'),
+ 'ggt': ('Gamma-glutamil transferasa (GGT)', 'U/L', 'Función hepática'),
+ 'iron': ('Hierro', 'µg/dL', 'Hematología'),
+ 'ferritin': ('Ferritina', 'ng/mL', 'Hematología'),
+ 'cea': ('Antígeno Carcinoembrionario (CEA)', 'ng/mL', 'Otros resultados de laboratorio'),
+ 'psa': ('PSA (Antígeno prostático específico)', 'ng/mL', 'Otros resultados de laboratorio'),
+ 'erythrocytes': ('Hematíes', '10^6/µL', 'Hematología'),
+ 'hemoglobin': ('Hemoglobina', 'g/dL', 'Hematología'),
+ 'hematocrit': ('Hematocrito', '%', 'Hematología'),
+ 'mcv': ('Volumen corpuscular medio (VCM)', 'fL', 'Hematología'),
+ 'mch': ('Hemoglobina corpuscular media (HCM)', 'pg', 'Hematología'),
+ 'mchc': ('Conc. de hgb. corpuscular media (CHCM)', 'g/dL', 'Hematología'),
+ 'rdw': ('Índice de anisocitosis (RDW)', '%', 'Hematología'),
+ 'leukocytes': ('Leucocitos', '10^3/µL', 'Hematología'),
+ 'neutrophils_pct': ('Neutrófilos %', '%', 'Hematología'),
+ 'lymphocytes_pct': ('Linfocitos %', '%', 'Hematología'),
+ 'monocytes_pct': ('Monocitos %', '%', 'Hematología'),
+ 'eosinophils_pct': ('Eosinófilos %', '%', 'Hematología'),
+ 'basophils_pct': ('Basófilos %', '%', 'Hematología'),
+ 'neutrophils_abs': ('Neutrófilos', '10^3/µL', 'Hematología'),
+ 'lymphocytes_abs': ('Linfocitos', '10^3/µL', 'Hematología'),
+ 'monocytes_abs': ('Monocitos', '10^3/µL', 'Hematología'),
+ 'eosinophils_abs': ('Eosinófilos', '10^3/µL', 'Hematología'),
+ 'basophils_abs': ('Basófilos', '10^3/µL', 'Hematología'),
+ 'platelets': ('Plaquetas', '10^3/µL', 'Hematología'),
+ 'mpv': ('Volumen plaquetario medio (VPM)', 'fL', 'Hematología'),
+}
+for key, (label, unit, area) in LAB_METRICS.items():
+    METRICS[key] = (label, unit, 0, 100 if unit == '%' else 1_000_000, area)
 ALIASES = {k:k for k in METRICS}
 ALIASES.update({v[0].lower(): k for k,v in METRICS.items()})
 ALIASES.update({'glucosa basal':'glucose','hemoglobina glicosilada':'hba1c','colesterol ldl':'ldl','colesterol hdl':'hdl','peso':'weight','sueno':'sleep','sueño':'sleep','pasos':'steps','ta sistolica':'systolic'})
+ALIASES.update({'colesterol':'total_cholesterol', 'ácido úrico':'uric_acid', 'acido urico':'uric_acid',
+    'ast':'ast', 'got':'ast', 'ast (got)':'ast', 'alt':'alt', 'gpt':'alt', 'alt (gpt)':'alt',
+    'ggt':'ggt', 'gamma glutamil transferasa (ggt)':'ggt', 'psa':'psa', 'cea':'cea',
+    'eritrocitos':'erythrocytes', 'hematíes':'erythrocytes', 'hematies':'erythrocytes',
+    'vcm':'mcv', 'hcm':'mch', 'chcm':'mchc', 'rdw':'rdw', 'vpm':'mpv',
+    'concentración de hemoglobina corpuscular media (chcm)':'mchc'})
+for key in ('neutrophils', 'lymphocytes', 'monocytes', 'eosinophils', 'basophils'):
+    label = METRICS[key+'_abs'][0].lower()
+    ALIASES[label+' (%)'] = key+'_pct'
+
+def unit_key(unit):
+    text = unicodedata.normalize('NFKD', str(unit)).lower().replace('μ','u').replace('µ','u').replace('×','x')
+    return re.sub(r'\s+', '', text)
+
+def canonical_unit(unit, canonical):
+    key = unit_key(unit)
+    if key == unit_key(canonical): return canonical
+    if canonical in ('10^3/µL', '10^6/µL'):
+        exponent = canonical[3]
+        if key in {f'{prefix}10{power}/{volume}' for prefix in ('', 'x')
+                   for power in (exponent, '^'+exponent, '**'+exponent)
+                   for volume in ('mm3', 'mm^3', 'ul')}:
+            return canonical
+    return str(unit).strip()
 
 def normalize(row):
     errors = []
@@ -33,18 +94,22 @@ def normalize(row):
             errors.append('Fecha futura o anterior a 1900')
     except (ValueError, TypeError):
         errors.append('Fecha ambigua: usa AAAA-MM-DD')
+    raw_value = str(row.get('value','')).strip()
     try:
-        value = float(str(row.get('value','')).replace(',', '.'))
+        value = float(raw_value.replace(',', '.'))
         if not math.isfinite(value): raise ValueError()
     except (ValueError, TypeError):
         value = None; errors.append('Valor numérico inválido')
     unit = str(row.get('unit','')).strip()
     note = str(row.get('note',''))[:1000]
+    comparator = bool(re.fullmatch(r'[<>≤≥]\s*\d+(?:[.,]\d+)?', raw_value))
+    if comparator:
+        note += f' Resultado acotado del documento: {raw_value}; no es un valor exacto.'
     if metric not in METRICS:
         errors.append('Indicador no reconocido: selecciona uno del catálogo')
     else:
         canonical = METRICS[metric][1]
-        if unit.lower() == canonical.lower(): unit = canonical
+        unit = canonical_unit(unit, canonical)
         if unit.lower() == 'mmol/l' and metric in ('glucose','ldl','hdl','triglycerides') and value is not None:
             factor = 18.0182 if metric == 'glucose' else (88.57 if metric == 'triglycerides' else 38.67)
             note += f' Conversión desde {value} mmol/L × {factor}.'
@@ -53,6 +118,7 @@ def normalize(row):
         if value is not None and not METRICS[metric][2] <= value <= METRICS[metric][3]:
             errors.append('Valor fuera de la envolvente de validación: comprueba origen/unidad')
     return {'date':date, 'metric':metric, 'value':value, 'unit':unit, 'note':note,
+            **({'raw_value':raw_value} if comparator else {}),
             'locator':str(row.get('locator','Entrada manual'))[:150], 'issues':errors}
 
 def calculate(rows):
